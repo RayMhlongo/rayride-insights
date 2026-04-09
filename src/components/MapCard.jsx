@@ -11,17 +11,6 @@ const containerStyle = {
 export default function MapCard({ pickup, destination, driverLocation }) {
   const { t } = useApp();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const { isLoaded } = useJsApiLoader({
-    id: 'rayride-maps',
-    googleMapsApiKey: apiKey || 'missing-key',
-  });
-
-  const center = useMemo(
-    () => pickup || destination || driverLocation || { lat: -26.2041, lng: 28.0473 },
-    [destination, driverLocation, pickup],
-  );
-
-  const path = [pickup, driverLocation, destination].filter(Boolean);
 
   if (!apiKey) {
     return (
@@ -35,6 +24,29 @@ export default function MapCard({ pickup, destination, driverLocation }) {
       </div>
     );
   }
+
+  return (
+    <LoadedMapCard
+      apiKey={apiKey}
+      pickup={pickup}
+      destination={destination}
+      driverLocation={driverLocation}
+    />
+  );
+}
+
+function LoadedMapCard({ apiKey, pickup, destination, driverLocation }) {
+  const { isLoaded } = useJsApiLoader({
+    id: 'rayride-maps',
+    googleMapsApiKey: apiKey,
+  });
+
+  const center = useMemo(
+    () => pickup || destination || driverLocation || { lat: -26.2041, lng: 28.0473 },
+    [destination, driverLocation, pickup],
+  );
+
+  const path = [pickup, driverLocation, destination].filter(Boolean);
 
   if (!isLoaded) {
     return <div className="map-fallback">Loading map...</div>;
