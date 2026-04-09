@@ -1,32 +1,20 @@
-import {
-  Timestamp,
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  runTransaction,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getDrivers, subscribe, updateDrivers, updateRides, getRides, createId } from './localDb';
+
+function sortByCreated(items) {
+  return [...items].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
 
 function subscriptionIsCurrent(driverData) {
-  const expiresAt = driverData.subscriptionExpiresAt?.toDate
-    ? driverData.subscriptionExpiresAt.toDate()
-    : driverData.subscriptionExpiresAt
-      ? new Date(driverData.subscriptionExpiresAt)
-      : null;
-
+  const expiresAt = driverData.subscriptionExpiresAt ? new Date(driverData.subscriptionExpiresAt) : null;
   return Boolean(driverData.subscriptionActive && expiresAt && expiresAt.getTime() > Date.now());
 }
 
 export async function createRideRequest(payload) {
-  const result = await addDoc(collection(db, 'rides'), {
+  const rideId = createId('ride');
+  const ride = {
+    id: rideId,
     ...payload,
-    createdAt: serverTimestamp(),
+    createdAt: new Date().toISOString(),
     completedAt: null,
     rating: null,
     status: 'pending',
@@ -34,129 +22,149 @@ export async function createRideRequest(payload) {
     driverName: null,
     driverPhone: null,
     driverLocation: null,
-  });
+  };
 
-  return result.id;
+  updateRides((rides) => sortByCreated([...rides, ride]));
+  return rideId;
 }
 
 export function subscribeToRide(rideId, callback) {
-  return onSnapshot(doc(db, 'rides', rideId), (snapshot) => {
-    callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
-  });
+  const run = () => callback(getRides().find((ride) => ride.id === rideId) || null);
+  run();
+  return subscribe(run);
 }
 
 export function subscribeToPendingRides(callback) {
-  const ridesQuery = query(
-    collection(db, 'rides'),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc'),
-  );
-
-  return onSnapshot(ridesQuery, (snapshot) => {
-    callback(snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() })));
-  });
+  const run = () => callback(sortByCreated(getRides().filter((ride) => ride.status === 'pending')));
+  run();
+  return subscribe(run);
 }
 
 export async function acceptRide({ rideId, driver }) {
-  const rideRef = doc(db, 'rides', rideId);
-  const driverRef = doc(db, 'drivers', driver.id);
+  const ride = getRides().find((entry) => entry.id === rideId);
+  const driverProfile = getDrivers().find((entry) => entry.id === driver.id);
 
-  await runTransaction(db, async (transaction) => {
-    const rideSnap = await transaction.get(rideRef);
-    const driverSnap = await transaction.get(driverRef);
+  if (!ride) {
+    throw new Error('Ride not found');
+  }
 
-    if (!rideSnap.exists()) {
-      throw new Error('Ride not found');
-    }
+  if (!driverProfile) {
+    throw new Error('Driver not found');
+  }
 
-    if (!driverSnap.exists()) {
-      throw new Error('Driver not found');
-    }
+  if (ride.status !== 'pending') {
+    throw new Error('Ride already accepted');
+  }
 
-    const rideData = rideSnap.data();
-    const driverData = driverSnap.data();
+  if (!driverProfile.verified || !subscriptionIsCurrent(driverProfile)) {
+    throw new Error('Driver is not eligible to accept rides');
+  }
 
-    if (rideData.status !== 'pending') {
-      throw new Error('Ride already accepted');
-    }
+  updateRides((rides) =>
+    sortByCreated(
+      rides.map((entry) =>
+        entry.id === rideId
+          ? {
+              ...entry,
+              status: 'accepted',
+              acceptedAt: new Date().toISOString(),
+              driverId: driver.id,
+              driverName: driver.name,
+              driverPhone: driver.phone,
+              driverLocation: driver.location ?? null,
+              updatedAt: new Date().toISOString(),
+            }
+          : entry,
+      ),
+    ),
+  );
 
-    if (!driverData.verified || !subscriptionIsCurrent(driverData)) {
-      throw new Error('Driver is not eligible to accept rides');
-    }
-
-    // The transaction makes "first driver wins" deterministic even when several drivers tap at once.
-    transaction.update(rideRef, {
-      status: 'accepted',
-      acceptedAt: Timestamp.now(),
-      driverId: driver.id,
-      driverName: driver.name,
-      driverPhone: driver.phone,
-      driverLocation: driver.location ?? null,
-    });
-
-    transaction.update(driverRef, {
-      currentRideId: rideId,
-      updatedAt: serverTimestamp(),
-    });
-  });
+  updateDrivers((drivers) =>
+    drivers.map((entry) =>
+      entry.id === driver.id ? { ...entry, currentRideId: rideId, updatedAt: new Date().toISOString() } : entry,
+    ),
+  );
 }
 
 export async function updateRideStatus(rideId, payload) {
-  await updateDoc(doc(db, 'rides', rideId), {
-    ...payload,
-    updatedAt: serverTimestamp(),
-  });
+  updateRides((rides) =>
+    sortByCreated(
+      rides.map((ride) =>
+        ride.id === rideId ? { ...ride, ...payload, updatedAt: new Date().toISOString() } : ride,
+      ),
+    ),
+  );
 }
 
 export async function syncRideDriverLocation(rideId, location) {
-  await updateDoc(doc(db, 'rides', rideId), {
-    driverLocation: {
-      ...location,
-      updatedAt: new Date().toISOString(),
-    },
-    updatedAt: serverTimestamp(),
-  });
+  updateRides((rides) =>
+    sortByCreated(
+      rides.map((ride) =>
+        ride.id === rideId
+          ? {
+              ...ride,
+              driverLocation: {
+                ...location,
+                updatedAt: new Date().toISOString(),
+              },
+              updatedAt: new Date().toISOString(),
+            }
+          : ride,
+      ),
+    ),
+  );
 }
 
 export async function completeRide({ rideId, driverId }) {
-  await updateDoc(doc(db, 'rides', rideId), {
-    status: 'completed',
-    completedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  updateRides((rides) =>
+    sortByCreated(
+      rides.map((ride) =>
+        ride.id === rideId
+          ? {
+              ...ride,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : ride,
+      ),
+    ),
+  );
 
-  await updateDoc(doc(db, 'drivers', driverId), {
-    currentRideId: null,
-    updatedAt: serverTimestamp(),
-  });
+  updateDrivers((drivers) =>
+    drivers.map((driver) =>
+      driver.id === driverId ? { ...driver, currentRideId: null, updatedAt: new Date().toISOString() } : driver,
+    ),
+  );
 }
 
 export async function rateRide({ rideId, driverId, rating }) {
-  const rideRef = doc(db, 'rides', rideId);
-  const driverRef = doc(db, 'drivers', driverId);
+  const driver = getDrivers().find((entry) => entry.id === driverId);
+  if (!driver) {
+    throw new Error('Missing ride or driver');
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const rideSnap = await transaction.get(rideRef);
-    const driverSnap = await transaction.get(driverRef);
+  const nextRatingCount = (driver.ratingCount || 0) + 1;
+  const cumulativeRating = (driver.rating || 0) * (driver.ratingCount || 0) + rating;
 
-    if (!rideSnap.exists() || !driverSnap.exists()) {
-      throw new Error('Missing ride or driver');
-    }
+  updateRides((rides) =>
+    sortByCreated(
+      rides.map((ride) =>
+        ride.id === rideId ? { ...ride, rating, updatedAt: new Date().toISOString() } : ride,
+      ),
+    ),
+  );
 
-    const driverData = driverSnap.data();
-    const nextRatingCount = (driverData.ratingCount || 0) + 1;
-    const cumulativeRating = (driverData.rating || 0) * (driverData.ratingCount || 0) + rating;
-
-    // Ratings are stored per ride and also rolled into the driver's average for quick dashboard reads.
-    transaction.update(rideRef, {
-      rating,
-      updatedAt: serverTimestamp(),
-    });
-
-    transaction.update(driverRef, {
-      rating: Number((cumulativeRating / nextRatingCount).toFixed(2)),
-      ratingCount: nextRatingCount,
-      updatedAt: serverTimestamp(),
-    });
-  });
+  updateDrivers((drivers) =>
+    drivers.map((entry) =>
+      entry.id === driverId
+        ? {
+            ...entry,
+            rating: Number((cumulativeRating / nextRatingCount).toFixed(2)),
+            ratingCount: nextRatingCount,
+            updatedAt: new Date().toISOString(),
+          }
+        : entry,
+    ),
+  );
 }

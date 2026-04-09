@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { onAuthChange } from '../firebase/auth';
+import { onAuthChange } from '../services/authService';
 import { t as translate } from '../i18n/translations';
 import { getDriverProfile } from '../services/driverService';
 

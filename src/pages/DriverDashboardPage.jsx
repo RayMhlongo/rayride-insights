@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { logoutDriver } from '../firebase/auth';
+import { logoutDriver } from '../services/authService';
 import InfoRow from '../components/InfoRow';
 import StatusBadge from '../components/StatusBadge';
 import {

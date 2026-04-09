@@ -1,90 +1,123 @@
-import {
-  Timestamp,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { createId, getDrivers, subscribe, updateDrivers } from './localDb';
+
+function sortByUpdated(items) {
+  return [...items].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+}
+
+function normalizeDriver(driverId, payload, existing = null) {
+  const now = new Date().toISOString();
+
+  return {
+    id: existing?.id || driverId || createId('driver'),
+    email: payload.email ?? existing?.email ?? '',
+    password: existing?.password ?? '',
+    name: payload.name ?? existing?.name ?? '',
+    phone: payload.phone ?? existing?.phone ?? '',
+    verified: existing?.verified ?? false,
+    subscriptionActive: existing?.subscriptionActive ?? false,
+    subscriptionExpiresAt: existing?.subscriptionExpiresAt ?? null,
+    rating: existing?.rating ?? 0,
+    ratingCount: existing?.ratingCount ?? 0,
+    isOnline: existing?.isOnline ?? false,
+    currentRideId: existing?.currentRideId ?? null,
+    documents: {
+      idImageURL: payload.documents?.idImageURL ?? existing?.documents?.idImageURL ?? '',
+      profileImageURL: payload.documents?.profileImageURL ?? existing?.documents?.profileImageURL ?? '',
+    },
+    vehicle: {
+      model: payload.vehicle?.model ?? existing?.vehicle?.model ?? '',
+      plate: payload.vehicle?.plate ?? existing?.vehicle?.plate ?? '',
+      color: payload.vehicle?.color ?? existing?.vehicle?.color ?? '',
+    },
+    location: payload.location ?? existing?.location ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+}
 
 export async function saveDriverProfile(driverId, payload) {
-  const driverRef = doc(db, 'drivers', driverId);
-  const existing = await getDoc(driverRef);
-  const basePayload = {
-    ...payload,
-    updatedAt: serverTimestamp(),
-  };
+  updateDrivers((drivers) => {
+    const existing = drivers.find((driver) => driver.id === driverId);
+    const nextDriver = normalizeDriver(driverId, payload, existing);
 
-  if (!existing.exists()) {
-    await setDoc(driverRef, {
-      verified: false,
-      subscriptionActive: false,
-      subscriptionExpiresAt: null,
-      rating: 0,
-      ratingCount: 0,
-      isOnline: false,
-      currentRideId: null,
-      createdAt: serverTimestamp(),
-      ...basePayload,
-    });
-    return;
-  }
+    if (!existing) {
+      return sortByUpdated([...drivers, nextDriver]);
+    }
 
-  await updateDoc(driverRef, basePayload);
+    return sortByUpdated(drivers.map((driver) => (driver.id === driverId ? nextDriver : driver)));
+  });
 }
 
 export async function getDriverProfile(driverId) {
-  const snapshot = await getDoc(doc(db, 'drivers', driverId));
-  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+  return getDrivers().find((driver) => driver.id === driverId) || null;
 }
 
 export function subscribeToDriverProfile(driverId, callback) {
-  return onSnapshot(doc(db, 'drivers', driverId), (snapshot) => {
-    callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
-  });
+  const run = () => callback(getDrivers().find((driver) => driver.id === driverId) || null);
+  run();
+  return subscribe(run);
 }
 
 export async function updateDriverStatus(driverId, payload) {
-  await updateDoc(doc(db, 'drivers', driverId), {
-    ...payload,
-    updatedAt: serverTimestamp(),
-  });
+  updateDrivers((drivers) =>
+    sortByUpdated(
+      drivers.map((driver) =>
+        driver.id === driverId
+          ? { ...driver, ...payload, updatedAt: new Date().toISOString() }
+          : driver,
+      ),
+    ),
+  );
 }
 
 export async function activateSubscription(driverId) {
-  const expiration = Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-  await updateDoc(doc(db, 'drivers', driverId), {
-    subscriptionActive: true,
-    subscriptionExpiresAt: expiration,
-    updatedAt: serverTimestamp(),
-  });
+  updateDrivers((drivers) =>
+    sortByUpdated(
+      drivers.map((driver) =>
+        driver.id === driverId
+          ? {
+              ...driver,
+              subscriptionActive: true,
+              subscriptionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : driver,
+      ),
+    ),
+  );
 }
 
 export async function updateDriverLocation(driverId, location) {
-  await updateDoc(doc(db, 'drivers', driverId), {
-    location: {
-      ...location,
-      updatedAt: new Date().toISOString(),
-    },
-    updatedAt: serverTimestamp(),
-  });
+  updateDrivers((drivers) =>
+    sortByUpdated(
+      drivers.map((driver) =>
+        driver.id === driverId
+          ? {
+              ...driver,
+              location: {
+                ...location,
+                updatedAt: new Date().toISOString(),
+              },
+              updatedAt: new Date().toISOString(),
+            }
+          : driver,
+      ),
+    ),
+  );
 }
 
 export function subscribeToAllDrivers(callback) {
-  const driversQuery = query(collection(db, 'drivers'), orderBy('updatedAt', 'desc'));
-  return onSnapshot(driversQuery, (snapshot) => {
-    callback(snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() })));
-  });
+  const run = () => callback(sortByUpdated(getDrivers()));
+  run();
+  return subscribe(run);
 }
 
 export async function setDriverVerification(driverId, verified) {
-  await updateDoc(doc(db, 'drivers', driverId), {
-    verified,
-    updatedAt: serverTimestamp(),
-  });
+  updateDrivers((drivers) =>
+    sortByUpdated(
+      drivers.map((driver) =>
+        driver.id === driverId ? { ...driver, verified, updatedAt: new Date().toISOString() } : driver,
+      ),
+    ),
+  );
 }
