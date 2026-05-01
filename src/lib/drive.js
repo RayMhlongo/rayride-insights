@@ -31,6 +31,10 @@ class DriveError extends Error {
 
 const loadScript = (src) =>
   new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      reject(new DriveError('Google API scripts can only load in a browser.'));
+      return;
+    }
     if (document.querySelector(`script[src="${src}"]`)) return resolve();
     const script = document.createElement('script');
     script.src = src;
@@ -67,7 +71,7 @@ export async function initGoogle() {
 
 export function signIn() {
   return new Promise((resolve, reject) => {
-    if (!tokenClient) return reject(new Error('Google OAuth is not configured.'));
+    if (!tokenClient || !window.gapi?.client) return reject(new Error('Google OAuth is not ready. Refresh and try again.'));
     tokenClient.callback = (response) => {
       if (response.error) reject(response);
       else {
@@ -82,9 +86,9 @@ export function signIn() {
 
 export function signOut() {
   const token = window.gapi?.client?.getToken?.();
-  if (token) window.google.accounts.oauth2.revoke(token.access_token);
+  if (token && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(token.access_token);
   window.gapi?.client?.setToken(null);
-  sessionStorage.removeItem(TOKEN_KEY);
+  removeSessionToken();
 }
 
 export function hasDriveToken() {
@@ -93,16 +97,31 @@ export function hasDriveToken() {
 
 function storeToken(token, expiresIn) {
   const expiresAt = Date.now() + Math.max(Number(expiresIn || 3300) - 60, 60) * 1000;
-  sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ ...token, expiresAt }));
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ ...token, expiresAt }));
+    }
+  } catch (error) {
+    console.error('Insight Rides could not store the Google token for this session.', error);
+  }
 }
 
 function readStoredToken() {
   try {
-    const token = JSON.parse(sessionStorage.getItem(TOKEN_KEY));
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+    const token = JSON.parse(window.sessionStorage.getItem(TOKEN_KEY));
     if (!token?.access_token || Date.now() > Number(token.expiresAt || 0)) return null;
     return token;
   } catch {
     return null;
+  }
+}
+
+function removeSessionToken() {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) window.sessionStorage.removeItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Insight Rides could not clear the Google token.', error);
   }
 }
 

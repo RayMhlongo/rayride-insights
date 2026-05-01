@@ -41,7 +41,14 @@ const navItems = [
 function useAppData() {
   const [data, setDataState] = useState(() => readLocal());
   const [ready, setReady] = useState(false);
-  const [auth, setAuth] = useState({ configured: false, signedIn: false, localMode: false, syncing: false, offline: !navigator.onLine, error: '' });
+  const [auth, setAuth] = useState({
+    configured: false,
+    signedIn: false,
+    localMode: false,
+    syncing: false,
+    offline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
+    error: '',
+  });
 
   useEffect(() => {
     initGoogle()
@@ -49,7 +56,10 @@ function useAppData() {
         setAuth((current) => ({ ...current, configured: result.configured, signedIn: Boolean(result.restored), error: '' }));
         if (result.restored) setDataState(await loadDriveData());
       })
-      .catch((error) => setAuth((current) => ({ ...current, configured: false, error: error.message })))
+      .catch((error) => {
+        console.error('Insight Rides Google API startup failed', error);
+        setAuth((current) => ({ ...current, configured: false, error: error.message }));
+      })
       .finally(() => setReady(true));
     const online = () => setAuth((current) => ({ ...current, offline: false }));
     const offline = () => setAuth((current) => ({ ...current, offline: true }));
@@ -220,6 +230,7 @@ export default function App() {
         <div className="panel max-w-md p-6">
           <h1 className="text-2xl font-bold text-navy">Insight Rides</h1>
           <p className="mt-2 text-sm text-slate-600">Add your Google OAuth Client ID and API key to `.env` to enable Drive sync. You can still use the app locally during setup.</p>
+          {app.auth.error && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-danger">{app.auth.error}</p>}
           <button className="btn-primary mt-5 w-full" onClick={app.startLocal}>Continue locally</button>
         </div>
       </div>

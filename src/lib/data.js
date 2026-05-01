@@ -84,28 +84,49 @@ export function visibleData(data) {
 
 export function readLocal() {
   try {
-    return normalizeData(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+    return normalizeData(JSON.parse(getStorageItem(STORAGE_KEY)));
   } catch {
     return normalizeData(emptyData);
   }
 }
 
 export function writeLocal(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeData({ ...data, meta: { ...(data?.meta || {}), lastLocalSave: nowIso() } })));
+  setStorageItem(STORAGE_KEY, JSON.stringify(normalizeData({ ...data, meta: { ...(data?.meta || {}), lastLocalSave: nowIso() } })));
 }
 
 export function queueOfflineData(data) {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify({ updatedAt: nowIso(), data: normalizeData(data) }));
+  setStorageItem(QUEUE_KEY, JSON.stringify({ updatedAt: nowIso(), data: normalizeData(data) }));
 }
 
 export function readOfflineQueue() {
   try {
-    return JSON.parse(localStorage.getItem(QUEUE_KEY));
+    return JSON.parse(getStorageItem(QUEUE_KEY));
   } catch {
     return null;
   }
 }
 
 export function clearOfflineQueue() {
-  localStorage.removeItem(QUEUE_KEY);
+  removeStorageItem(QUEUE_KEY);
+}
+
+function getStorageItem(key) {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  return window.localStorage.getItem(key);
+}
+
+function setStorageItem(key, value) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.error('Insight Rides could not write browser storage.', error);
+  }
+}
+
+function removeStorageItem(key) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(key);
+  } catch (error) {
+    console.error('Insight Rides could not clear browser storage.', error);
+  }
 }
