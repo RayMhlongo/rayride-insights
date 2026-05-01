@@ -3,8 +3,11 @@ import { dateKey } from './utils';
 
 export const ACTIVE_TRIP_KEY = 'insight-rides-active-gps-trip-v1';
 
-const MATCH_THRESHOLD_METERS = 420;
-const DISTANCE_RATIO_THRESHOLD = 0.45;
+const START_END_THRESHOLD_METERS = 750;
+const DISTANCE_RATIO_THRESHOLD = 0.15;
+const MIN_TRIP_DISTANCE_KM = 0.2;
+const MIN_CAPTURE_POINTS = 2;
+const AUTO_ASSIGN_CONFIRMATIONS = 2;
 
 export function readActiveTrip() {
   try {
@@ -39,41 +42,65 @@ export function pointFromPosition(position) {
   };
 }
 
-export function completeLearnedTrip(data, activeTrip) {
+export function prepareTripReview(data, activeTrip) {
   const points = compactPath(activeTrip.points || []);
   const endedAt = nowIso();
   const startedAt = activeTrip.startedAt || endedAt;
   const distance = calculatePathDistance(points);
   const durationSeconds = Math.max(Math.round((new Date(endedAt) - new Date(startedAt)) / 1000), 0);
-  const match = findMatchingRoute(data.routes, points, distance);
+  if (points.length < MIN_CAPTURE_POINTS) throw new Error('This trip needs at least two reliable GPS points before it can be saved.');
+  if (distance < MIN_TRIP_DISTANCE_KM) throw new Error('This trip is too short to learn safely. Please use manual trip entry for very short trips.');
+  return {
+    id: makeId('review'),
+    startedAt,
+    endedAt,
+    points,
+    distance,
+    durationSeconds,
+    startPoint: points[0],
+    endPoint: points.at(-1),
+    estimatedStops: estimateStops(points),
+    suggestion: suggestRoute(data.routes, points, distance),
+  };
+}
+
+export function confirmLearnedTrip(data, review, options = {}) {
+  const points = compactPath(review.points || []);
+  const distance = calculatePathDistance(points);
+  if (points.length < MIN_CAPTURE_POINTS || distance < MIN_TRIP_DISTANCE_KM) return data;
   const updatedAt = nowIso();
-  const route = match
-    ? evolveRoute(match, points, distance, updatedAt)
+  const selectedRoute = options.routeId ? data.routes.find((route) => route.id === options.routeId) : null;
+  const route = selectedRoute
+    ? evolveRoute(selectedRoute, points, distance, updatedAt)
     : createLearnedRoute(data.routes, points, distance, updatedAt);
   const routeId = route.id;
   const learnedTrip = {
     id: makeId('trip'),
-    date: dateKey(new Date(startedAt)),
-    time: `tracked ${new Date(startedAt).toTimeString().slice(0, 5)}`,
+    date: dateKey(new Date(review.startedAt)),
+    time: `tracked ${new Date(review.startedAt).toTimeString().slice(0, 5)}`,
     routeId,
     vehicleId: data.vehicles.find((vehicle) => vehicle.active)?.id || '',
     driver: data.vehicles.find((vehicle) => vehicle.active)?.assignedDriver || '',
-    studentsOnboard: data.students.filter((student) => student.routeId === routeId).length,
+    studentsOnboard: options.studentIds?.length || data.students.filter((student) => student.routeId === routeId).length,
     distance: Number(distance.toFixed(2)),
     income: 0,
     fuelCost: 0,
-    durationSeconds,
+    durationSeconds: review.durationSeconds,
     routePath: points,
+    studentIds: options.studentIds || [],
     autoTracked: true,
+    confirmedAt: updatedAt,
     updatedAt,
   };
+  const trips = [...data.trips, learnedTrip];
 
   return {
     ...data,
     routes: data.routes.some((item) => item.id === route.id)
       ? data.routes.map((item) => (item.id === route.id ? route : item))
       : [...data.routes, route],
-    trips: [...data.trips, learnedTrip],
+    students: applyStudentRouteLearning(data.students, trips, options.studentIds || [], routeId, updatedAt),
+    trips,
   };
 }
 
@@ -116,24 +143,27 @@ function evolveRoute(route, points, distance, updatedAt) {
   };
 }
 
-function findMatchingRoute(routes, points, distance) {
+export function suggestRoute(routes, points, distance) {
   const candidates = routes
     .map((route) => ({ route, score: routeSimilarity(route, points, distance) }))
     .filter((candidate) => candidate.score !== null)
     .sort((a, b) => a.score - b.score);
-  return candidates[0]?.route || null;
+  const best = candidates[0];
+  if (!best) return null;
+  const confidence = best.score <= 500 ? 'high' : best.score <= 900 ? 'medium' : 'low';
+  return { route: best.route, confidence, score: best.score };
 }
 
 function routeSimilarity(route, points, distance) {
   const routePoints = normalizePath(route.pathCoordinates || parseStops(route.stops));
   if (routePoints.length < 2 || points.length < 2) return null;
-  const sampled = samplePath(points, 12);
-  const routeSample = samplePath(routePoints, 12);
-  const averageNearest = sampled.reduce((total, point) => total + nearestDistance(point, routeSample), 0) / sampled.length;
+  const startDistance = haversine(points[0], routePoints[0]) * 1000;
+  const endDistance = haversine(points.at(-1), routePoints.at(-1)) * 1000;
   const routeDistance = safeNumber(route.averageDistance, safeNumber(route.distance, calculatePathDistance(routePoints)));
   const distanceRatio = routeDistance > 0 ? Math.abs(routeDistance - distance) / routeDistance : 0;
-  if (averageNearest <= MATCH_THRESHOLD_METERS && distanceRatio <= DISTANCE_RATIO_THRESHOLD) {
-    return averageNearest + distanceRatio * 1000;
+  if (startDistance <= START_END_THRESHOLD_METERS && endDistance <= START_END_THRESHOLD_METERS && distanceRatio <= DISTANCE_RATIO_THRESHOLD) {
+    const frequencyBonus = Math.min(safeNumber(route.frequency) * 12, 120);
+    return startDistance * 0.35 + endDistance * 0.35 + distanceRatio * 900 - frequencyBonus;
   }
   return null;
 }
@@ -168,13 +198,39 @@ export function normalizePath(points) {
     .filter((point) => point.lat && point.lng);
 }
 
+function applyStudentRouteLearning(students, trips, studentIds, routeId, updatedAt) {
+  if (!studentIds.length) return students;
+  return students.map((student) => {
+    if (!studentIds.includes(student.id) || student.routeId) return student;
+    const confirmations = trips.filter((trip) => trip.routeId === routeId && trip.studentIds?.includes(student.id)).length;
+    if (confirmations < AUTO_ASSIGN_CONFIRMATIONS) return student;
+    return {
+      ...student,
+      routeId,
+      routeAutoAssigned: true,
+      routeConfidenceCount: confirmations,
+      updatedAt,
+    };
+  });
+}
+
+function estimateStops(points) {
+  const stops = [];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const slowBefore = haversine(previous, current) * 1000 < 35;
+    const slowAfter = haversine(current, next) * 1000 < 35;
+    if (slowBefore && slowAfter) stops.push(current);
+    if (stops.length >= 5) break;
+  }
+  return stops;
+}
+
 function samplePath(points, count) {
   if (points.length <= count) return points;
   return [...Array(count)].map((_, index) => points[Math.round((index / (count - 1)) * (points.length - 1))]);
-}
-
-function nearestDistance(point, routePoints) {
-  return Math.min(...routePoints.map((routePoint) => haversine(point, routePoint) * 1000));
 }
 
 function haversine(a, b) {
