@@ -3,11 +3,13 @@ import {
   AlertTriangle,
   BarChart3,
   Bus,
+  Calculator,
   Car,
   CreditCard,
   Home,
   LogOut,
   Map,
+  MapPinned,
   Menu,
   Settings as SettingsIcon,
   ReceiptText,
@@ -24,6 +26,8 @@ import Vehicles from './pages/Vehicles.jsx';
 import Payments from './pages/Payments.jsx';
 import Reports from './pages/Reports.jsx';
 import Settings from './pages/Settings.jsx';
+import MapsRoutes from './pages/MapsRoutes.jsx';
+import FuelCalculator from './pages/FuelCalculator.jsx';
 import { initGoogle, loadDriveData, readLocal, saveDriveData, signIn, signOut, testDriveConnection, writeLocal } from './lib/drive';
 import { emptyData } from './lib/constants';
 import { clearLocalCache, clearOfflineQueue, normalizeData, queueOfflineData, readOfflineQueue, visibleData } from './lib/data';
@@ -33,6 +37,8 @@ const navItems = [
   { to: '/students', label: 'Students', icon: Users },
   { to: '/trips', label: 'Trips', icon: Bus },
   { to: '/routes', label: 'Routes', icon: RouteIcon },
+  { to: '/maps', label: 'Maps', icon: MapPinned },
+  { to: '/fuel-calculator', label: 'Fuel Calculator', icon: Calculator },
   { to: '/finance', label: 'Money', icon: ReceiptText },
   { to: '/vehicles', label: 'Vehicles', icon: Car },
   { to: '/payments', label: 'Payments', icon: CreditCard },
@@ -230,6 +236,8 @@ function AppShell({ app }) {
             <Route path="/students" element={<Students app={context} />} />
             <Route path="/trips" element={<Trips app={context} />} />
             <Route path="/routes" element={<RoutesPage app={context} />} />
+            <Route path="/maps" element={<MapsRoutes app={context} />} />
+            <Route path="/fuel-calculator" element={<FuelCalculator app={context} />} />
             <Route path="/finance" element={<Finance app={context} />} />
             <Route path="/vehicles" element={<Vehicles app={context} />} />
             <Route path="/payments" element={<Payments app={context} />} />

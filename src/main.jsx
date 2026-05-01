@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import 'leaflet/dist/leaflet.css';
 import './styles.css';
 
 const root = document.getElementById('root');

@@ -63,3 +63,50 @@ button, input, select, textarea {
 .brand-accent {
   @apply bg-gradient-to-r from-cyan to-violet bg-clip-text text-transparent;
 }
+
+.leaflet-container {
+  font-family: inherit;
+  background: #dbeafe;
+}
+
+.dark .leaflet-container {
+  background: #09091f;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  @apply rounded-lg bg-white text-slate-900 shadow-soft dark:bg-nightPanel dark:text-slate-50;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+}
+
+.map-popup-btn {
+  @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-md bg-navy px-2 py-1 text-xs font-bold text-white dark:bg-cyan dark:text-slate-950;
+}
+
+.map-marker {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border: 3px solid white;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+}
+
+.map-marker-student {
+  background: #00d7ff;
+}
+
+.map-marker-vehicle {
+  background: #7c3aed;
+}
+
+.map-marker-start {
+  background: #22c55e;
+}
+
+.map-marker-end {
+  background: #ef4444;
+}
