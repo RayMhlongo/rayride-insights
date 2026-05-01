@@ -31,8 +31,6 @@ jobs:
           VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY }}
           VITE_DRIVE_FOLDER_ID: ${{ secrets.VITE_DRIVE_FOLDER_ID }}
 
-      - uses: actions/configure-pages@v4   # 🔴 THIS WAS MISSING
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -42,8 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - uses: actions/configure-pages@v4   # 🔴 REQUIRED HERE
+
       - id: deployment
         uses: actions/deploy-pages@v4
