@@ -79,7 +79,7 @@ Each record uses generated IDs and update timestamps. The app syncs Drive data o
    - `VITE_GOOGLE_CLIENT_ID`
    - `VITE_GOOGLE_API_KEY`
    - `VITE_DRIVE_FOLDER_ID` if using a fixed folder
-4. Create `.github/workflows/deploy.yml`:
+4. The repository already includes `.github/workflows/deploy.yml`:
 
    ```yaml
    name: Deploy Insight Rides
