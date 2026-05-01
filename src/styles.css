@@ -2,131 +2,215 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color: #1e293b;
-  background: #f8fafc;
-  font-family: 'Roboto', sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-}
+/* FONTS (template style) */
+@import url(https://fonts.googleapis.com/css?family=Questrial);
+@import url(https://fonts.googleapis.com/css?family=Dancing+Script:700);
 
-html, body {
-  font-family: 'Roboto', sans-serif;
-}
-
+/* BASE */
+html,
 body {
-  margin: 0;
-  min-width: 320px;
-  overflow-x: hidden;
-  background: #f8fafc;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
 
-.dark body {
-  background: #09091f;
+:root {
+    font-family: 'Questrial','Helvetica Neue',Arial,sans-serif;
+    background-color: #282828;
+    color: #d3d3d3;
 }
 
-button, input, select, textarea {
-  font: inherit;
+/* BODY */
+body {
+    font-family: 'Questrial','Helvetica Neue',Arial,sans-serif;
+    background-color: #282828;
+    color: #d3d3d3;
+    -webkit-tap-highlight-color: #222;
+    overflow-x: hidden;
 }
 
-.field {
-  @apply min-h-11 w-full rounded-lg border border-line bg-white px-3 py-2 text-base text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-cyan focus:ring-2 focus:ring-cyan/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-cyan sm:text-sm;
+/* TEXT */
+h1,h2,h3,h4,h5,h6 {
+    font-family: 'Questrial','Helvetica Neue',Arial,sans-serif;
 }
 
-.label {
-  @apply text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300;
+p {
+    font-size: 17px;
+    line-height: 1.7;
+    margin-bottom: 20px;
 }
 
+/* LINKS */
+a {
+    color: #9c27b0;
+    transition: all .35s;
+}
+
+a:hover,
+a:focus {
+    color: #9c27c1;
+    outline: 0;
+}
+
+/* UTIL */
+.text-primary {
+    color: #9c27b0;
+}
+
+.text-faded {
+    color: rgba(245,245,245,0.7);
+}
+
+.text-dark {
+    color: #111;
+}
+
+/* LAYOUT */
+section {
+    padding: 70px 0;
+}
+
+aside {
+    padding: 50px 0;
+}
+
+.no-padding {
+    padding: 0;
+}
+
+/* HR */
+hr {
+    max-width: 80px;
+    border-width: 3px;
+    opacity: 0.09;
+    margin: 15px 0;
+}
+
+hr.light {
+    border-color: #fff;
+}
+
+/* NAVBAR */
+.navbar-default {
+    border-color: rgba(35,35,35,.05);
+    font-family: 'Questrial','Helvetica Neue',Arial,sans-serif;
+    background-color: #222;
+    transition: all .4s;
+}
+
+.navbar-header > .navbar-brand {
+    font-family: 'Questrial','Helvetica Neue',Arial,sans-serif;
+    color: #9c27b0;
+    padding: 15px;
+    transition: padding .2s ease-in;
+}
+
+.navbar-header > .navbar-brand:hover {
+    color: #8b27b0;
+}
+
+.navbar-default .nav > li > a {
+    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 700;
+    color: #eee;
+}
+
+.navbar-default .nav > li > a:hover {
+    color: #9c27b0;
+}
+
+.navbar-default .nav > li.active > a {
+    color: #9c27b0 !important;
+    background: transparent;
+}
+
+/* BUTTONS (template style) */
 .btn {
-  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+    border: 0;
+    border-radius: 290px;
+    font-family: 'Helvetica Neue',Arial,sans-serif;
 }
 
-.btn-primary {
-  @apply btn bg-navy text-white shadow-glow hover:bg-slate-800 dark:bg-cyan dark:text-slate-950 dark:hover:bg-cyan/90;
+.btn.btn-primary {
+    background: transparent;
+    border: 1px solid #f0f0f0;
+    color: #f0f0f0;
+    transition: all .35s;
 }
 
-.btn-secondary {
-  @apply btn border border-line bg-white text-ink hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-800;
+.btn.btn-primary:hover {
+    opacity: 0.7;
 }
 
-.btn-danger {
-  @apply btn bg-red-50 text-danger hover:bg-red-100 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-900;
+/* FORMS */
+.form-control {
+    display: block;
+    width: 100%;
+    height: 35px;
+    padding: 6px 12px;
+    font-size: 14px;
+    color: #eee;
+    background-color: #36333d;
+    border: 1px solid #36333d;
+    border-radius: 4px;
 }
 
-.panel {
-  @apply rounded-2xl border border-line bg-white shadow-soft transition duration-200 dark:border-cyan/20 dark:bg-nightPanel dark:text-slate-50 dark:shadow-glow;
+.form-control:focus {
+    color: #222;
+    background-color: #ccc;
 }
 
-.app-surface {
-  @apply min-h-screen bg-mist text-ink dark:bg-night dark:text-slate-50;
+/* HEADER */
+header {
+    position: relative;
+    min-height: auto;
+    text-align: center;
+    color: #fff;
+    width: 100%;
+    background-color: #282828;
+    background-image: url('https://splashbase.s3.amazonaws.com/lifeofpix/regular/Life-of-Pix-free-stock-photos-Slate-Stone-Xeromatic-1440x953.jpg');
+    background-position: center;
+    background-size: cover;
 }
 
-.muted {
-  @apply text-slate-600 dark:text-slate-300;
+header .header-content {
+    position: relative;
+    width: 100%;
+    padding: 100px 15px;
+    text-align: center;
 }
 
-.brand-accent {
-  @apply bg-gradient-to-r from-cyan to-violet bg-clip-text text-transparent;
+/* FOOTER */
+footer {
+    background-color: #2d2d2d;
+    padding: 15px;
 }
 
-.leaflet-container {
-  font-family: inherit;
-  background: #dbeafe;
+/* GALLERY */
+.gallery-box {
+    position: relative;
+    max-width: 650px;
+    overflow: hidden;
 }
 
-.dark .leaflet-container {
-  background: #09091f;
+.gallery-box:hover img {
+    transform: scale(1.1);
 }
 
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  @apply rounded-lg bg-white text-slate-900 shadow-soft dark:bg-nightPanel dark:text-slate-50;
-}
-
-.leaflet-popup-content {
-  margin: 12px;
-}
-
-.map-popup-btn {
-  @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-md bg-navy px-2 py-1 text-xs font-bold text-white dark:bg-cyan dark:text-slate-950;
-}
-
-.map-marker {
-  display: block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid white;
-  border-radius: 999px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
-}
-
-.map-marker-student {
-  background: #00d7ff;
-}
-
-.map-marker-vehicle {
-  background: #7c3aed;
-}
-
-.map-marker-start {
-  background: #22c55e;
-}
-
-.map-marker-end {
-  background: #ef4444;
-}
-
+/* ANIMATION */
 .animate-in {
-  animation: fade-slide-in 220ms ease-out both;
+    animation: fade-slide-in 220ms ease-out both;
 }
 
 @keyframes fade-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
