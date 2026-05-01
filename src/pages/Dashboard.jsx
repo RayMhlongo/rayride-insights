@@ -4,6 +4,7 @@ import { AlertTriangle, Bus, CircleDollarSign, Fuel, TrendingUp, Users } from 'l
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import KpiCard from '../components/KpiCard.jsx';
+import TripCapture from '../components/TripCapture.jsx';
 import { currency, inMonth, inWeek, studentBalance, sum, todayKey } from '../lib/utils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend);
@@ -32,53 +33,55 @@ export default function Dashboard({ app }) {
     datasets: [{ label: 'Income', data: days.map((day) => sum(data.trips.filter((trip) => trip.date === day), (trip) => trip.income)), borderColor: '#0f172a', backgroundColor: '#0f172a', tension: 0.35 }],
   }), [data.trips, days]);
 
-  const categories = [...new Set(data.expenses.map((expense) => expense.category))];
+  const categories = useMemo(() => [...new Set(data.expenses.map((expense) => expense.category))], [data.expenses]);
   const expenseChart = useMemo(() => ({
     labels: categories,
     datasets: [{ label: 'Expenses', data: categories.map((category) => sum(data.expenses.filter((expense) => expense.category === category), (expense) => expense.amount)), backgroundColor: '#64748b' }],
   }), [categories, data.expenses]);
 
-  const chartOptions = useMemo(() => ({ responsive: true, maintainAspectRatio: false }), []);
+  const chartOptions = useMemo(() => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10 } } } }), []);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-xl font-bold text-navy">Dashboard</h2>
-          <p className="text-sm text-slate-500">Today's school transport snapshot.</p>
+          <h1 className="text-3xl font-bold text-navy dark:text-slate-50">Operations Dashboard</h1>
+          <p className="muted text-sm">Today's school transport snapshot.</p>
         </div>
         <Link className="btn-primary" to="/trips">Quick Add Trip</Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title="Daily income" value={currency(dailyIncome)} icon={CircleDollarSign} tone="green" />
-        <KpiCard title="Weekly income" value={currency(weeklyIncome)} icon={TrendingUp} />
-        <KpiCard title="Monthly income" value={currency(monthlyIncome)} icon={TrendingUp} />
-        <KpiCard title="Total expenses" value={currency(expenses)} icon={CircleDollarSign} tone="red" />
-        <KpiCard title="Net profit" value={currency(monthlyIncome - expenses)} icon={TrendingUp} tone={monthlyIncome - expenses >= 0 ? 'green' : 'red'} />
-        <KpiCard title="Active students" value={data.students.length} icon={Users} />
-        <KpiCard title="Trips today" value={todaysTrips.length} icon={Bus} />
-        <KpiCard title="Fuel estimate" value={currency(fuel)} icon={Fuel} tone="amber" />
+      <TripCapture app={app} />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+        <KpiCard title="Daily income" amount={dailyIncome} format={currency} icon={CircleDollarSign} tone="green" emphasis />
+        <KpiCard title="Weekly income" amount={weeklyIncome} format={currency} icon={TrendingUp} />
+        <KpiCard title="Monthly income" amount={monthlyIncome} format={currency} icon={TrendingUp} />
+        <KpiCard title="Total expenses" amount={expenses} format={currency} icon={CircleDollarSign} tone="red" emphasis />
+        <KpiCard title="Net profit" amount={monthlyIncome - expenses} format={currency} icon={TrendingUp} tone={monthlyIncome - expenses >= 0 ? 'green' : 'red'} emphasis />
+        <KpiCard title="Active students" amount={data.students.length} icon={Users} />
+        <KpiCard title="Trips today" amount={todaysTrips.length} icon={Bus} />
+        <KpiCard title="Fuel estimate" amount={fuel} format={currency} icon={Fuel} tone="amber" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-5">
         <div className="panel p-4 xl:col-span-3">
-          <h3 className="mb-3 font-bold text-navy">Income over time</h3>
+          <h2 className="mb-3 text-xl font-bold text-navy dark:text-slate-50">Income over time</h2>
           <Line data={incomeChart} options={chartOptions} height={260} />
         </div>
         <div className="panel p-4 xl:col-span-2">
-          <h3 className="mb-3 font-bold text-navy">Expense categories</h3>
+          <h2 className="mb-3 text-xl font-bold text-navy dark:text-slate-50">Expense categories</h2>
           <Bar data={expenseChart} options={chartOptions} height={260} />
         </div>
       </div>
 
       <div className="panel p-4">
-        <h3 className="mb-3 font-bold text-navy">Alerts</h3>
+        <h2 className="mb-3 text-xl font-bold text-navy dark:text-slate-50">Alerts</h2>
         <div className="grid gap-2">
           {missingTrip && <Alert text="No trip has been captured for today." />}
           {!!unpaid.length && <Alert text={`${unpaid.length} student payments are outstanding.`} />}
           {highFuel && <Alert text="Fuel estimate is high compared with today's income." />}
-          {!missingTrip && !unpaid.length && !highFuel && <p className="text-sm text-slate-500">No alerts right now.</p>}
+          {!missingTrip && !unpaid.length && !highFuel && <p className="muted text-sm">No alerts right now.</p>}
         </div>
       </div>
     </div>
@@ -86,5 +89,5 @@ export default function Dashboard({ app }) {
 }
 
 function Alert({ text }) {
-  return <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger"><AlertTriangle size={16} /> {text}</div>;
+  return <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-danger dark:bg-red-950 dark:text-red-200"><AlertTriangle size={16} /> {text}</div>;
 }

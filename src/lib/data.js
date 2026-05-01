@@ -1,7 +1,7 @@
 import { emptyData, QUEUE_KEY, STORAGE_KEY } from './constants';
 
 const arrayKeys = ['students', 'trips', 'expenses', 'incomes', 'routes', 'vehicles', 'payments'];
-const numericFields = new Set(['monthlyFee', 'distance', 'fare', 'studentsOnboard', 'income', 'fuelCost', 'amount', 'averageFuelConsumption']);
+const numericFields = new Set(['monthlyFee', 'distance', 'fare', 'studentsOnboard', 'income', 'fuelCost', 'amount', 'averageFuelConsumption', 'averageDistance', 'frequency', 'durationSeconds']);
 
 export const nowIso = () => new Date().toISOString();
 

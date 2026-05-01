@@ -87,11 +87,12 @@ export default function FuelCalculator() {
         </section>
 
         <section className="space-y-4">
-          <div className="panel p-4">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="panel animate-in overflow-hidden p-5">
+            <p className="label">Estimated {viewPeriod} fuel cost</p>
+            <div className="mt-3 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <h3 className="font-bold text-navy dark:text-slate-50">Cost Estimate</h3>
-                <p className="muted text-sm">Switch the view without changing your entered distance.</p>
+                <p className="text-4xl font-black leading-none text-navy dark:text-cyan">{currency(result.selectedCost)}</p>
+                <p className="muted mt-2 text-sm">{result.selectedFuel.toFixed(1)} liters across {result.selectedDistance.toFixed(1)} km</p>
               </div>
               <select className="field sm:w-40" value={viewPeriod} onChange={(event) => setViewPeriod(event.target.value)}>
                 <option value="daily">Daily</option>
