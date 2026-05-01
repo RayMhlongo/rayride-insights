@@ -2,6 +2,7 @@ import { emptyData } from './constants';
 import { clearOfflineQueue, mergeData, normalizeData, readLocal, writeLocal } from './data';
 
 const APP_FOLDER = 'InsightRides';
+const OVERRIDE_KEY = 'insight-rides-drive-config-v1';
 const FILES = {
   students: 'students.json',
   routes: 'routes.json',
@@ -11,12 +12,6 @@ const FILES = {
 
 const monthlyFile = (type, date = new Date()) => `${type}/${new Date(date).toISOString().slice(0, 7)}.json`;
 const monthFromRecord = (record) => String(record?.date || new Date().toISOString()).slice(0, 7);
-
-const env = {
-  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-  apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-  folderId: import.meta.env.VITE_DRIVE_FOLDER_ID,
-};
 
 let tokenClient;
 const TOKEN_KEY = 'insight-rides-google-token-v1';
@@ -44,7 +39,8 @@ const loadScript = (src) =>
   });
 
 export async function initGoogle() {
-  if (!env.clientId || !env.apiKey) return { configured: false };
+  const config = getDriveConfig();
+  if (!config.clientId || !config.apiKey) return { configured: false };
   try {
     await Promise.all([
       loadScript('https://apis.google.com/js/api.js'),
@@ -53,11 +49,11 @@ export async function initGoogle() {
     if (!window.gapi || !window.google?.accounts?.oauth2) throw new DriveError('Google scripts loaded but APIs are unavailable.');
     await new Promise((resolve, reject) => window.gapi.load('client', { callback: resolve, onerror: reject }));
     await window.gapi.client.init({
-      apiKey: env.apiKey,
+      apiKey: config.apiKey,
       discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
     });
     tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: env.clientId,
+      client_id: config.clientId,
       scope: 'https://www.googleapis.com/auth/drive.file',
       callback: () => {},
     });
@@ -159,7 +155,8 @@ async function createFolder(name, parentId) {
 }
 
 async function ensureRootFolder() {
-  if (env.folderId) return env.folderId;
+  const config = getDriveConfig();
+  if (config.folderId) return config.folderId;
   const existing = await findFile(APP_FOLDER, 'root');
   return existing?.id || createFolder(APP_FOLDER);
 }
@@ -272,6 +269,59 @@ export async function saveDriveData(data) {
   await writeAll(merged);
   clearOfflineQueue();
   return merged;
+}
+
+export function getDriveConfig() {
+  const envConfig = {
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+    apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+    folderId: import.meta.env.VITE_DRIVE_FOLDER_ID || '',
+  };
+  try {
+    const overrides = JSON.parse(localStorage.getItem(OVERRIDE_KEY)) || {};
+    return {
+      clientId: overrides.clientId || envConfig.clientId,
+      apiKey: overrides.apiKey || envConfig.apiKey,
+      folderId: overrides.folderId || envConfig.folderId,
+      source: overrides.clientId || overrides.apiKey || overrides.folderId ? 'manual override' : 'environment',
+      hasClientId: Boolean(overrides.clientId || envConfig.clientId),
+      hasApiKey: Boolean(overrides.apiKey || envConfig.apiKey),
+      hasFolderId: Boolean(overrides.folderId || envConfig.folderId),
+    };
+  } catch {
+    return {
+      ...envConfig,
+      source: 'environment',
+      hasClientId: Boolean(envConfig.clientId),
+      hasApiKey: Boolean(envConfig.apiKey),
+      hasFolderId: Boolean(envConfig.folderId),
+    };
+  }
+}
+
+export function readDriveOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(OVERRIDE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveDriveOverrides(overrides) {
+  localStorage.setItem(OVERRIDE_KEY, JSON.stringify({
+    clientId: overrides.clientId?.trim() || '',
+    apiKey: overrides.apiKey?.trim() || '',
+    folderId: overrides.folderId?.trim() || '',
+  }));
+  tokenClient = null;
+}
+
+export async function testDriveConnection() {
+  const result = await initGoogle();
+  if (!result.configured) throw new DriveError('Google Drive credentials are missing.');
+  if (!hasDriveToken()) await signIn();
+  await ensureRootFolder();
+  return true;
 }
 
 export { readLocal, writeLocal };

@@ -5,11 +5,11 @@ import {
   Bus,
   Car,
   CreditCard,
-  Gauge,
   Home,
   LogOut,
   Map,
   Menu,
+  Settings as SettingsIcon,
   ReceiptText,
   Route as RouteIcon,
   Users,
@@ -23,9 +23,10 @@ import Finance from './pages/Finance.jsx';
 import Vehicles from './pages/Vehicles.jsx';
 import Payments from './pages/Payments.jsx';
 import Reports from './pages/Reports.jsx';
-import { initGoogle, loadDriveData, readLocal, saveDriveData, signIn, signOut, writeLocal } from './lib/drive';
+import Settings from './pages/Settings.jsx';
+import { initGoogle, loadDriveData, readLocal, saveDriveData, signIn, signOut, testDriveConnection, writeLocal } from './lib/drive';
 import { emptyData } from './lib/constants';
-import { clearOfflineQueue, normalizeData, queueOfflineData, readOfflineQueue, visibleData } from './lib/data';
+import { clearLocalCache, clearOfflineQueue, normalizeData, queueOfflineData, readOfflineQueue, visibleData } from './lib/data';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home },
@@ -36,7 +37,10 @@ const navItems = [
   { to: '/vehicles', label: 'Vehicles', icon: Car },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
+
+const mobileNavItems = navItems.filter((item) => ['/', '/trips', '/students', '/settings'].includes(item.to));
 
 function useAppData() {
   const [data, setDataState] = useState(() => readLocal());
@@ -78,9 +82,9 @@ function useAppData() {
 
   const login = async () => {
     setAuth((current) => ({ ...current, error: '' }));
-    await signIn();
-    setAuth((current) => ({ ...current, signedIn: true, syncing: true, error: '' }));
     try {
+      await signIn();
+      setAuth((current) => ({ ...current, signedIn: true, syncing: true, localMode: false, error: '' }));
       setDataState(await loadDriveData());
     } catch (error) {
       setAuth((current) => ({ ...current, error: error.message }));
@@ -137,7 +141,33 @@ function useAppData() {
 
   const startLocal = () => setAuth((current) => ({ ...current, localMode: true, signedIn: true }));
 
-  return { data: visibleData(data || emptyData), setData: updateData, auth, ready, login, logout, sync, startLocal };
+  const reconnectDrive = async () => {
+    setAuth((current) => ({ ...current, syncing: true, error: '' }));
+    try {
+      const result = await initGoogle();
+      setAuth((current) => ({ ...current, configured: result.configured, signedIn: Boolean(result.restored), localMode: false }));
+      if (result.restored) setDataState(await loadDriveData());
+    } catch (error) {
+      setAuth((current) => ({ ...current, configured: false, error: error.message }));
+    } finally {
+      setAuth((current) => ({ ...current, syncing: false }));
+    }
+  };
+
+  const testDrive = () => testDriveConnection();
+
+  const clearCache = () => {
+    clearLocalCache();
+    clearOfflineQueue();
+  };
+
+  const resetLocalData = () => {
+    if (!window.confirm('Reset local Insight Rides data on this device?')) return;
+    clearLocalCache();
+    setDataState(emptyData);
+  };
+
+  return { data: visibleData(data || emptyData), setData: updateData, auth, ready, login, logout, sync, startLocal, reconnectDrive, testDrive, clearCache, resetLocalData };
 }
 
 function AppShell({ app }) {
@@ -150,18 +180,18 @@ function AppShell({ app }) {
   const context = useMemo(() => app, [app]);
 
   return (
-    <div className="min-h-screen bg-mist pb-20 text-ink md:pb-0">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-white p-4 transition md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className="app-surface pb-20 md:pb-0">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-white p-4 transition dark:border-cyan/20 dark:bg-nightPanel md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="mb-6 flex items-center gap-3 px-2">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-navy text-white"><Gauge size={22} /></div>
+          <img className="h-11 w-11 rounded-lg object-cover ring-1 ring-cyan/30" src={`${import.meta.env.BASE_URL}insight-ride-logo.png`} alt="Insight Ride" />
           <div>
-            <p className="font-bold text-navy">Insight Rides</p>
-            <p className="text-xs text-slate-500">School transport ops</p>
+            <p className="font-bold text-navy dark:text-slate-50">Insight Rides</p>
+            <p className="text-xs text-slate-600 dark:text-cyan">School transport ops</p>
           </div>
         </div>
         <nav className="space-y-1">
           {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-slate-100 text-navy' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <NavLink key={to} to={to} className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-cyan/10 text-navy dark:text-cyan' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900'}`}>
               <Icon size={18} /> {label}
             </NavLink>
           ))}
@@ -169,16 +199,16 @@ function AppShell({ app }) {
       </aside>
 
       <main className="md:pl-64">
-        <header className="sticky top-0 z-30 border-b border-line bg-white/95 px-4 py-3 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-line bg-white/95 px-4 py-3 backdrop-blur dark:border-cyan/20 dark:bg-night/95">
           <div className="flex items-center justify-between gap-3">
             <button className="btn-secondary px-3 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={18} /></button>
             <div>
-              <h1 className="text-lg font-bold text-navy">Insight Rides</h1>
-              <p className="text-xs text-slate-500">{app.auth.localMode ? 'Local setup mode' : app.auth.offline ? 'Offline mode' : app.auth.syncing ? 'Syncing with Drive' : queued ? 'Offline changes waiting' : 'Drive data ready'}</p>
+              <h1 className="text-lg font-bold text-navy dark:text-slate-50">Insight Rides</h1>
+              <p className="text-xs text-slate-600 dark:text-slate-300">{app.auth.localMode ? 'Local setup mode' : app.auth.offline ? 'Offline mode' : app.auth.syncing ? 'Syncing with Drive' : queued ? 'Offline changes waiting' : 'Drive data ready'}</p>
             </div>
             <div className="flex items-center gap-2">
               {queued && <button className="btn-secondary hidden sm:inline-flex" onClick={app.sync}>Sync</button>}
-              <button className="btn-secondary px-3" onClick={app.logout}><LogOut size={18} /></button>
+              <button className="btn-secondary px-3" onClick={app.logout}><LogOut size={18} /><span className="hidden sm:inline">Sign out</span></button>
             </div>
           </div>
         </header>
@@ -194,7 +224,7 @@ function AppShell({ app }) {
           </div>
         )}
 
-        <div className="p-4 lg:p-6">
+        <div className="mx-auto w-full max-w-md p-4 sm:max-w-2xl lg:max-w-7xl lg:p-6">
           <Routes>
             <Route path="/" element={<Dashboard app={context} />} />
             <Route path="/students" element={<Students app={context} />} />
@@ -204,13 +234,14 @@ function AppShell({ app }) {
             <Route path="/vehicles" element={<Vehicles app={context} />} />
             <Route path="/payments" element={<Payments app={context} />} />
             <Route path="/reports" element={<Reports app={context} />} />
+            <Route path="/settings" element={<Settings app={context} />} />
           </Routes>
         </div>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line bg-white md:hidden">
-        {navItems.slice(0, 5).map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => `flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-semibold ${isActive ? 'text-navy' : 'text-slate-500'}`}>
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-line bg-white dark:border-cyan/20 dark:bg-nightPanel md:hidden">
+        {mobileNavItems.map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => `flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold ${isActive ? 'text-navy dark:text-cyan' : 'text-slate-700 dark:text-slate-200'}`}>
             <Icon size={19} /> {label}
           </NavLink>
         ))}
@@ -222,14 +253,15 @@ function AppShell({ app }) {
 export default function App() {
   const app = useAppData();
 
-  if (!app.ready) return <div className="grid min-h-screen place-items-center bg-mist text-navy">Loading Insight Rides...</div>;
+  if (!app.ready) return <div className="app-surface grid place-items-center text-navy dark:text-cyan">Loading Insight Rides...</div>;
 
   if (!app.auth.configured && !app.auth.localMode) {
     return (
-      <div className="grid min-h-screen place-items-center bg-mist p-4">
+      <div className="app-surface grid place-items-center p-4">
         <div className="panel max-w-md p-6">
-          <h1 className="text-2xl font-bold text-navy">Insight Rides</h1>
-          <p className="mt-2 text-sm text-slate-600">Add your Google OAuth Client ID and API key to `.env` to enable Drive sync. You can still use the app locally during setup.</p>
+          <img className="mb-4 h-20 w-20 rounded-xl object-cover ring-1 ring-cyan/40" src={`${import.meta.env.BASE_URL}insight-ride-logo.png`} alt="Insight Ride" />
+          <h1 className="text-2xl font-bold text-navy dark:text-slate-50">Insight Rides</h1>
+          <p className="muted mt-2 text-sm">Add your Google OAuth Client ID and API key to `.env` to enable Drive sync. You can still use the app locally during setup.</p>
           {app.auth.error && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-danger">{app.auth.error}</p>}
           <button className="btn-primary mt-5 w-full" onClick={app.startLocal}>Continue locally</button>
         </div>
@@ -239,11 +271,11 @@ export default function App() {
 
   if (!app.auth.signedIn) {
     return (
-      <div className="grid min-h-screen place-items-center bg-mist p-4">
+      <div className="app-surface grid place-items-center p-4">
         <div className="panel max-w-md p-6">
-          <div className="mb-5 grid h-12 w-12 place-items-center rounded-lg bg-navy text-white"><Map size={24} /></div>
-          <h1 className="text-2xl font-bold text-navy">Insight Rides</h1>
-          <p className="mt-2 text-sm text-slate-600">Sign in with Google to load your business folder from Drive and keep every phone in sync.</p>
+          <div className="mb-5 grid h-12 w-12 place-items-center rounded-lg bg-navy text-white dark:bg-cyan dark:text-slate-950"><Map size={24} /></div>
+          <h1 className="text-2xl font-bold text-navy dark:text-slate-50">Insight Rides</h1>
+          <p className="muted mt-2 text-sm">Sign in with Google to load your business folder from Drive and keep every phone in sync.</p>
           <button className="btn-primary mt-5 w-full" onClick={app.login}>Sign in with Google</button>
         </div>
       </div>

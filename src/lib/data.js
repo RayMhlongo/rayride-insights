@@ -110,6 +110,11 @@ export function clearOfflineQueue() {
   removeStorageItem(QUEUE_KEY);
 }
 
+export function clearLocalCache() {
+  removeStorageItem(STORAGE_KEY);
+  removeStorageItem(QUEUE_KEY);
+}
+
 function getStorageItem(key) {
   if (typeof window === 'undefined' || !window.localStorage) return null;
   return window.localStorage.getItem(key);

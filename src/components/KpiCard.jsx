@@ -9,8 +9,8 @@ export default function KpiCard({ title, value, tone = 'slate', icon: Icon }) {
     <div className="panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-navy">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">{title}</p>
+          <p className="mt-2 text-2xl font-bold text-navy dark:text-slate-50">{value}</p>
         </div>
         {Icon && <div className={`grid h-10 w-10 place-items-center rounded-lg ${tones[tone]}`}><Icon size={20} /></div>}
       </div>

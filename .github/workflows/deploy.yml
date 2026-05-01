@@ -42,7 +42,7 @@ jobs:
       name: github-pages
 
     steps:
-      - uses: actions/configure-pages@v4   # 🔴 REQUIRED HERE
+      - uses: actions/configure-pages@v4
 
       - id: deployment
         uses: actions/deploy-pages@v4
